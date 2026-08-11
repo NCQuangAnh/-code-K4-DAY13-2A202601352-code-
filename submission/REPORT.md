@@ -2,32 +2,45 @@
 
 ## 1. Thông tin nhóm
 
-- Tên nhóm:
-- Repository URL:
-- Commit SHA cuối:
+- Tên nhóm: *TODO — điền tên nhóm*
+- Repository URL: https://github.com/NCQuangAnh/-code-K4-DAY13-2A202601352-code-
+- Commit SHA cuối: *TODO — chạy `git log -1 --format=%H` sau khi commit phần P5 (báo cáo + evidence) và điền vào đây*
 - Thành viên và vai trò:
+
+| # | Thành viên | MSSV | Vai trò |
+|---|---|---|---|
+| 1 | Nguyễn Cao Quang Anh | 2A202601352 | P1 — Logging & PII |
+| 2 | Nguyễn Thị Nam Phương | 2A202601720 | P2 — Tracing & Prompt Version |
+| 3 | Vũ Đình Huy | 2A202601288 | P3 — Dashboard & SLO |
+| 4 | Lê Quang Trung | 2A202601158 | P4 — Alert & Runbook |
+| 5 | Lê Tuấn Minh | 2A202601390 | P5 — Incident, Test & Submission |
 
 ## 2. Kết quả kỹ thuật
 
-- Điểm `validate_logs.py`:
-- Tổng số traces:
-- Số PII leak còn lại:
-- Link/đường dẫn dashboard:
+- Điểm `validate_logs.py`: **100/100** (sau khi hoàn thiện P1: `middleware.py`, `pii.py`, `logging_config.py`, `main.py`) — baseline trước khi sửa là 30/100.
+- Tổng số traces: ≥10 (xem `submission/evidence/p2-01-traces-list-10plus.png`)
+- Số PII leak còn lại: 0 (validator xác nhận `+ [PASSED] PII scrubbing`, không phát hiện email/phone/CCCD/thẻ tín dụng nguyên văn)
+- Link/đường dẫn dashboard: xem `submission/evidence/p3-dashboard-baseline.png`, `p3-dashboard-baseline1.png` (dashboard build trên nguồn `data/logs.jsonl` theo `config/dashboard.yaml`)
 
 ## 3. Logging và tracing
 
-- Evidence correlation ID:
-- Evidence PII redaction:
-- Evidence trace waterfall:
-- Giải thích một span đáng chú ý:
+- Evidence correlation ID: `submission/evidence/p5-01-challenge-logs.jsonl` — mỗi request có `correlation_id` dạng `req-<8 hex>` xuyên suốt `request_received` → `response_sent`.
+- Evidence PII redaction: log request `req-8d3df6ed` ghi `"What is the policy for PII and credit card [REDACTED_CREDIT_CARD]?"` — số thẻ test đã bị che trước khi ghi log.
+- Evidence trace waterfall: `submission/evidence/p2-02-trace-baseline-v1.png` (v1), `p2-03-trace-candidate-v2.png` (v2)
+- Giải thích một span đáng chú ý: span `generation` bao trọn `LabAgent.run()` (retrieve + prompt + LLM call) — khi incident `rag_slow` bật, thời lượng span này tăng từ baseline ~1.3s lên ~3.6–3.75s, khớp với `time.sleep(2.5)` bị inject trong `mock_rag.retrieve()`. Lưu ý: `retrieve()` hiện **không có span riêng** (chỉ `agent.run` được `@observe`), nên trace một mình không tách được retrieval khỏi LLM call — phải đối chiếu thêm log/code để xác định chính xác điểm nghẽn.
 
 ## 4. Prompt versioning
 
-- Prompt name:
-- Version/label baseline:
-- Version/label candidate:
-- Trace ID của mỗi version:
+- Prompt name: `day13-chat` (biến bắt buộc `feature`, `docs`, `message`)
+- Version/label baseline: **v1**, label `baseline` + `production`, tạo lúc 8/11/2026 3:48:27 PM. Nội dung: `Feature={{feature}} / Docs={{docs}} / Question={{message}}`.
+- Version/label candidate: **v2**, label `candidate` (+ `latest`), tạo lúc 8/11/2026 4:03:17 PM. Thay đổi nhỏ so với v1: thêm dòng `Answer in 2-3 concise sentences.` để giới hạn độ dài câu trả lời. Evidence: `submission/evidence/p2-06-prompt-versions-list.png`.
+- Trace ID của mỗi version (chạy cùng input, đổi `LANGFUSE_PROMPT_LABEL`):
+  - Baseline (v1): session `s-prompt-baseline`, 2026-08-11 15:51:09, `prompt_version=1`, `prompt_label=baseline`, `prompt_source=langfuse`, cost $0.002067 — `submission/evidence/p2-02-trace-baseline-v1.png`
+  - Candidate (v2): session `s-prompt-candidate`, 2026-08-11 16:04:22, `prompt_version=2`, `prompt_label=candidate`, `prompt_source=langfuse`, cost $0.002169 — `submission/evidence/p2-03-trace-candidate-v2.png`
 - Bằng chứng đổi label hoặc rollback:
+  - Promote v2 → `production`: session `s-prompt-after-promote-2`, 2026-08-11 16:32:14, `prompt_version=2`, `prompt_label=production` — `submission/evidence/p2-04-label-promote-v2.png`
+  - Rollback `production` về v1: trace ID **`02f5761171783bd5a14f8ff4649a1841`**, session `s-prompt-rollback`, 2026-08-11 16:43:27, `prompt_version=1`, `prompt_label=production` — `submission/evidence/p2-05-label-rollback-v1.png`
+  - Trạng thái cuối xác nhận trên danh sách version (`p2-06`): v1 = `production`+`baseline`, v2 = `latest`+`candidate` → rollback thành công.
 
 ## 5. Dashboard, SLO và alerts
 
@@ -42,13 +55,13 @@
 
 ## 6. Điều tra challenge
 
-- Challenge ID:
-- Triệu chứng từ metrics:
-- Trace ID liên quan:
-- Log line/correlation ID liên quan:
-- Root cause:
-- Fix action:
-- Preventive measure:
+- Challenge ID: `day13-k4-observability-v1` (cohort K4, incident `rag_slow`, threshold 2000ms) — xem `config/challenge.json`
+- Triệu chứng từ metrics: `GET /metrics` — `latency_p95` tăng từ **1374ms** (baseline, 10 request practice) lên **3753ms** sau khi chạy `inject_incident.py` + `load_test.py --challenge --concurrency 5` (traffic 15). `error_breakdown` và `avg_cost_usd` không đổi → xác nhận đây là sự cố latency thuần, không phải lỗi hay cost. Chi tiết: `submission/evidence/p5-02-metrics-before-after.json`.
+- Trace ID liên quan: *TODO — mở Langfuse, tìm theo `session_id` = `k4-challenge-s01`…`k4-challenge-s05` (hoặc filter theo `correlation_id` tương ứng bên dưới), copy trace ID và chụp màn hình.*
+- Log line/correlation ID liên quan: 5 correlation ID của các request challenge, latency đo phía server (log `response_sent`): `req-be17461e` (3736ms), `req-d09cd358` (3753ms), `req-1c3cf73c` (3625ms), `req-66716925` (3669ms), `req-a2141938` (3709ms). Log `incident_enabled` (`correlation_id=req-5da2ddb9`, ts `10:27:42`) xác nhận thời điểm `rag_slow` được bật ngay trước 5 request trên. Đầy đủ trong `submission/evidence/p5-01-challenge-logs.jsonl`.
+- Root cause: `app/mock_rag.py:18` — khi `STATE["rag_slow"]` bật, `retrieve()` gọi `time.sleep(2.5)` (blocking, đồng bộ). Vì `LabAgent.run()` (gọi `retrieve()`) là hàm sync được gọi trực tiếp — không `await`, không chạy trong threadpool — từ handler `async def chat()` trong `app/main.py`, `time.sleep` này **chặn luôn event loop** của FastAPI. Latency đo phía server mỗi request chỉ ~3.6–3.75s (khớp baseline ~1.3s + 2.5s sleep), nhưng latency client đo được lên tới **11–18.5s** khi có 5 request đồng thời, vì các request phải xếp hàng tuần tự thay vì chạy song song — hiệu ứng khuếch đại do event loop bị block, không đơn thuần là "RAG chậm 2.5 giây".
+- Fix action: đổi `retrieve()` sang non-blocking — dùng `await asyncio.sleep(...)` nếu hàm async hoá được, hoặc bọc lệnh gọi `retrieve()` bằng `starlette.concurrency.run_in_threadpool` (hoặc `asyncio.to_thread`) ở `agent.py`/`main.py` để không giữ event loop; đồng thời thêm timeout cho bước retrieval để tránh một request chậm kéo theo cả hàng đợi.
+- Preventive measure: bọc `retrieve()` bằng `@observe` riêng để trace tách được span retrieval khỏi LLM call (dễ khoanh vùng lần sau); giữ alert `high_p95_latency` trong `config/alert_rules.yaml` (ngưỡng p95 >1000ms) làm cảnh báo sớm; thêm test tải (concurrency) vào CI/practice để phát hiện hiệu ứng nghẽn event loop trước khi lên production.
 
 ## 7. Đóng góp cá nhân
 
@@ -56,4 +69,10 @@ Với mỗi thành viên, ghi rõ nhiệm vụ và link commit/PR tương ứng.
 
 | Thành viên | Phần việc | Commit/PR | Điều đã học |
 |---|---|---|---|
-| | | | |
+| Nguyễn Cao Quang Anh (P1) | Correlation ID (`middleware.py`), bind context (`main.py`), scrub processor (`logging_config.py`), thêm PII pattern passport (`pii.py`) | `856dde2` middleware · `3985c26` bind request context to structlog · `02d2edd` register pii scrub processor · `0153695` add passport, pii patterns | *TODO — tự điền* |
+| Nguyễn Thị Nam Phương (P2) | Cấu hình Langfuse, tạo prompt v1/v2, demo đổi label/rollback | `3621d4a` Langfuse traces | *TODO — tự điền* |
+| Vũ Đình Huy (P3) | Dựng dashboard runtime 6 panel từ `data/logs.jsonl` | `a9dd406` feat(dashboard): add streamlit runtime dashboard | *TODO — tự điền* |
+| Lê Quang Trung (P4) | Định nghĩa 3 alert rule symptom-based có threshold kiểm chứng bằng incident thật | `d99d468` alerts v1 · `b8c7c8c` feat(alerts): define 3 symptom-based alerts with real incident-verified thresholds | *TODO — tự điền* |
+| Lê Tuấn Minh (P5) | Setup môi trường (Checkpoint 0), chạy challenge chính thức (`inject_incident.py` + `load_test.py --challenge`), điều tra root cause Metrics→Logs, tổng hợp `REPORT.md` + `submission/evidence/` | *TODO — commit sau khi hoàn tất, ví dụ `feat(p5): investigate rag_slow incident and finalize submission`* | *TODO — tự điền* |
+
+*Lưu ý: bảng trên map theo tác giả Git thật (`git log --format="%an"`) khớp với mô tả việc từng vai trò; riêng tác giả `BobbyFischer0` được gán cho P1 vì nội dung commit trùng khớp việc mô tả (middleware/PII/logging) — vui lòng xác nhận lại đúng là tài khoản GitHub của Nguyễn Cao Quang Anh trước khi nộp.*

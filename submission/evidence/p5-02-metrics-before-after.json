@@ -1,0 +1,30 @@
+{
+  "challenge_id": "day13-k4-observability-v1",
+  "incident": "rag_slow",
+  "metrics_baseline_before_incident": {
+    "traffic": 10,
+    "latency_p50": 1300.0,
+    "latency_p95": 1374.0,
+    "latency_p99": 1374.0,
+    "avg_cost_usd": 0.0019,
+    "total_cost_usd": 0.0186,
+    "tokens_in_total": 330,
+    "tokens_out_total": 1174,
+    "error_breakdown": {},
+    "quality_avg": 0.88
+  },
+  "metrics_after_challenge_load": {
+    "traffic": 15,
+    "latency_p50": 1342.0,
+    "latency_p95": 3753.0,
+    "latency_p99": 3753.0,
+    "avg_cost_usd": 0.0019,
+    "total_cost_usd": 0.0288,
+    "tokens_in_total": 505,
+    "tokens_out_total": 1820,
+    "error_breakdown": {},
+    "quality_avg": 0.8667
+  },
+  "client_side_latency_observed_ms": [11138.9, 14812.3, 18526.7, 18526.6, 18529.9],
+  "note": "Server-side latency_ms per request (~3.6-3.75s) matches the injected time.sleep(2.5s) in mock_rag.retrieve() plus normal ~1.3s baseline. Client-observed wall time (11-18.5s) is much higher because the blocking sleep runs on the event loop thread, serializing concurrent requests instead of running them in parallel."
+}
