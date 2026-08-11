@@ -4,7 +4,7 @@
 
 - Tên nhóm: A4-2222
 - Repository URL: https://github.com/NCQuangAnh/-code-K4-DAY13-2A202601352-code-
-- Commit SHA cuối:
+- Commit SHA cuối: `0f442d65906eed83ba5436c7a4b4f52737da95e5`
 - Thành viên và vai trò:
 
 | # | Thành viên | MSSV | Vai trò |
