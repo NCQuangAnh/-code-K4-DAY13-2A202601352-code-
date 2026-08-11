@@ -1,19 +1,19 @@
 alerts:
-  - name: TODO_alert_1
-    severity: TODO
-    condition: TODO
+  - name: high_p95_latency
+    severity: warning
+    condition: p95(latency_ms) > 1000 sustained for 2 consecutive checks (~1m) (SLO ceiling 3000ms; baseline ~158ms; observed ~2665ms during rag_slow incident test)
     type: symptom-based
-    owner: TODO
+    owner: tracing-prompt-version
     runbook: docs/alerts.md#alert-1
-  - name: TODO_alert_2
-    severity: TODO
-    condition: TODO
+  - name: elevated_error_rate
+    severity: critical
+    condition: error_rate_pct > 1 sustained for 2 consecutive checks (~1m) (SLO ceiling 2%; baseline 0%; observed 100% during isolated tool_fail burst, 14.3% blended into the 60m window)
     type: symptom-based
-    owner: TODO
+    owner: logging-pii
     runbook: docs/alerts.md#alert-2
-  - name: TODO_alert_3
-    severity: TODO
-    condition: TODO
+  - name: cost_per_request_spike
+    severity: warning
+    condition: avg(cost_usd) per response over rolling 5m window > 0.005 USD, confirmed on 2 consecutive checks (baseline ~0.0019 USD/request; observed ~0.0077 USD/request, 4.0x, during cost_spike incident test)
     type: symptom-based
-    owner: TODO
+    owner: dashboard-slo-alert
     runbook: docs/alerts.md#alert-3

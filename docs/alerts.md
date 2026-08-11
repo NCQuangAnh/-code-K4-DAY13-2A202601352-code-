@@ -7,7 +7,7 @@ Mỗi alert phải dựa trên triệu chứng người dùng hoặc SLO, không
 - Tên: High P95 Latency
 - Severity: Warning (nâng Critical nếu duy trì >15 phút hoặc P95 chạm trần SLO 3000ms)
 - SLI/SLO liên quan: `latency_p95_ms` (objective ≤3000ms, target 99.0% — `config/slo.yaml`)
-- Điều kiện và thời gian duy trì: P95 latency > **1000ms** duy trì liên tục **≥5 phút**. Căn cứ: baseline đo trên dashboard `scripts/dashboard_app.py` là P95=158ms; khi bật `python scripts/inject_incident.py --scenario rag_slow` và load test lại, P95 đo được **2665.7ms** — 1000ms nằm giữa baseline và trần SLO 3000ms, đủ nhạy để bắt sớm sự cố thật nhưng không sát trần đến mức trễ.
+- Điều kiện và thời gian duy trì: P95 latency > **1000ms**, xác nhận ở **2 lần refresh liên tiếp** (~1 phút, refresh 30s theo `config/dashboard.yaml`). Căn cứ: baseline đo trên dashboard `scripts/dashboard_app.py` là P95=158ms; khi bật `python scripts/inject_incident.py --scenario rag_slow` và load test lại, P95 đo được **2665.7ms** — 1000ms nằm giữa baseline và trần SLO 3000ms, đủ nhạy để bắt sớm sự cố thật nhưng không sát trần đến mức trễ.
 - Ảnh hưởng tới người dùng: Chờ câu trả lời lâu hơn hẳn bình thường, cảm giác app bị đơ, có thể bỏ ngang phiên hỏi đáp.
 - Ba bước kiểm tra đầu tiên:
   1. Mở panel Latency trên dashboard, xem P50/P95/P99 và thời điểm bắt đầu tăng.
@@ -21,7 +21,7 @@ Mỗi alert phải dựa trên triệu chứng người dùng hoặc SLO, không
 - Tên: Elevated Error Rate
 - Severity: Critical (lỗi chặn trực tiếp người dùng nhận câu trả lời)
 - SLI/SLO liên quan: `error_rate_pct` (objective ≤2%, target 99.5% — `config/slo.yaml`)
-- Điều kiện và thời gian duy trì: Error rate vượt ngưỡng cảnh báo (thấp hơn trần SLO 2% để có thời gian phản ứng) duy trì ≥5 phút. *Số chính xác chốt ở bước sau bằng dữ liệu thật.*
+- Điều kiện và thời gian duy trì: Error rate > **1%**, xác nhận ở **2 lần refresh liên tiếp** (~1 phút). Căn cứ: baseline đo được 0.00%; khi bật `python scripts/inject_incident.py --scenario tool_fail` và load test lại, toàn bộ 10/10 request trong đợt đó lỗi (**100%** error rate cô lập), kéo error rate của cả cửa sổ 60 phút lên **14.3%** (10 lỗi / 70 request) — vượt xa ngưỡng 1% nên alert chắc chắn bắt được. 1% = nửa trần SLO 2% (`config/slo.yaml`), giữ khoảng đệm để phản ứng trước khi vi phạm SLO thật sự.
 - Ảnh hưởng tới người dùng: Request trả lỗi thay vì câu trả lời, mất niềm tin vào tính năng, có thể mất luôn phiên làm việc.
 - Ba bước kiểm tra đầu tiên:
   1. Mở panel Errors, xem `error_type` breakdown để biết loại lỗi chiếm đa số.
@@ -32,10 +32,11 @@ Mỗi alert phải dựa trên triệu chứng người dùng hoặc SLO, không
 
 ## Alert 3
 
-- Tên: Daily Cost Spike
+- Tên: Cost-per-Request Spike
 - Severity: Warning (ảnh hưởng ngân sách, không chặn người dùng ngay lập tức)
-- SLI/SLO liên quan: `daily_cost_usd` (objective ≤2.5 USD/ngày, target 100% — `config/slo.yaml`)
-- Điều kiện và thời gian duy trì: Tốc độ tiêu cost trong cửa sổ ngắn (ví dụ 10-15 phút) vượt tốc độ dự kiến để giữ dưới trần ngày, duy trì liên tục thay vì chỉ 1 lần tăng đột biến. *Số chính xác chốt ở bước sau bằng dữ liệu thật.*
+- SLI/SLO liên quan: `daily_cost_usd` (objective ≤2.5 USD/ngày, target 100% — `config/slo.yaml`) — dùng cost trung bình/request làm tín hiệu sớm dẫn tới vi phạm SLO tổng
+- Điều kiện và thời gian duy trì: Cost trung bình mỗi response trong cửa sổ trượt 5 phút > **$0.005**, xác nhận ở **2 lần refresh liên tiếp** (~1 phút). Căn cứ thực đo: baseline $0.0019/request; khi bật `python scripts/inject_incident.py --scenario cost_spike` và load test lại, cost trung bình đo được **$0.0077/request (4.02x baseline)**.
+  - *Vì sao không dùng tổng cost/60 phút:* thử ban đầu đặt ngưỡng "tổng >$1.25/60 phút" (nửa trần SLO $2.5) nhưng đo thật cho thấy **tổng cả cửa sổ 60 phút kể cả lúc có cost_spike chỉ đạt $0.18** — traffic burst ngắn của lab không đủ volume để chạm ngưỡng tổng theo giờ, alert kiểu đó sẽ không bao giờ nổ dù có spike thật. Đổi sang cost trung bình/request vì đây là rate metric, phát hiện được bất thường ngay cả khi traffic thấp.
 - Ảnh hưởng tới người dùng: Không ảnh hưởng trực tiếp ngay, nhưng có thể dẫn tới việc đội ngũ phải throttle/tắt tính năng đột ngột nếu vượt ngân sách — ảnh hưởng gián tiếp tới trải nghiệm.
 - Ba bước kiểm tra đầu tiên:
   1. Mở panel Cost/Tokens, xác định thời điểm cost bắt đầu tăng bất thường.
